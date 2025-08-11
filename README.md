@@ -22,6 +22,21 @@
     <li><strong>Responsive Design</strong>: Modern web interface optimized for both desktop and mobile viewing</li>
 </ul>
 
+
+<h2>🎥 Demo</h2>
+
+<video width="100%" controls>
+    <source src="https://github.com/laszipt/ROS2-WEB-monitor/raw/main/Screencast%20from%202025-08-08%2009%3A43%3A21.webm" type="video/webm">
+    <p>Your browser doesn't support HTML video. <a href="https://github.com/laszipt/ROS2-WEB-monitor/blob/main/Screencast%20from%202025-08-08%2009%3A43%3A21.webm">Download the video</a> instead.</p>
+</video>
+
+<p><em>Screencast demonstration of ROS2-WEB-monitor interface showing real-time monitoring capabilities</em></p>
+
+<h2>📋 Prerequisites</h2>
+
+
+
+
 <h2>📋 Prerequisites</h2>
 
 <ul>
