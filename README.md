@@ -32,10 +32,6 @@
 
 <p><em>Screencast demonstration of ROS2-WEB-monitor interface showing real-time monitoring capabilities</em></p>
 
-<h2>📋 Prerequisites</h2>
-
-
-
 
 <h2>📋 Prerequisites</h2>
 
