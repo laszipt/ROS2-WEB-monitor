@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ROS2 Nodes I/O Visualization</title>
+
+    <!-- External libraries -->
+    <link rel="stylesheet" href="lib/bulma.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <script src="https://unpkg.com/d3-svg-annotation@2"></script>
+    <script src="lib/roslib.min.js"></script>
+    
+    <!-- Application scripts -->
+    <script src="js/ros-connection.js"></script>
+    <script src="js/nodes-io-service.js"></script>
+    
+    <style>
+        body { padding: 1.5rem; }
+        #nodes-io-graph { 
+            position: relative;
+            border-radius: 4px;
+            margin-top: 1rem; 
+        }
+        .node-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+    </style>
+
+    <!-- Initialize ROS connection and NodesIOService -->
+    <script>
+        window.ALL_SCRIPTS_LOADED = true;
+        document.addEventListener('DOMContentLoaded', () => {
+            if (typeof startRosConnection === 'function') {
+                console.log('[nodes-io] Starting ROS connection…');
+                startRosConnection();
+                
+                // Initialize NodesIOService after a small delay to ensure ROS connection is established
+                setTimeout(() => {
+                    if (typeof nodesIoService !== 'undefined') {
+                        nodesIoService.init();
+                        console.log('[nodes-io] Service initialized');
+                    } else {
+                        console.error('[nodes-io] nodesIoService not defined');
+                    }
+                }, 500);
+            } else {
+                console.error('[nodes-io] startRosConnection not found');
+            }
+        });
+    </script>
+</head>
+<body>
+    <section class="section">
+        <div class="container">
+            <h1 class="title">ROS2 Nodes ↔ Topics I/O</h1>
+            <p class="subtitle">Visualize connections between nodes and topics</p>
+            
+            <div id="nodes-section">
+                <div class="box">
+                    <div class="node-controls mb-3">
+                        <div class="buttons">
+                            <button class="button is-primary" id="nodes-io-show">
+                                <span class="icon"><i class="fas fa-sync-alt"></i></span>
+                                <span>Refresh</span>
+                            </button>
+                            <button class="button is-info" id="nodes-io-download">
+                                <span class="icon"><i class="fas fa-download"></i></span>
+                                <span>Download CSV</span>
+                            </button>
+                        </div>
+                        <div class="field">
+                            <div class="control">
+                                <input type="checkbox" id="toggle-graph-view" class="switch is-rounded is-info" checked>
+                                <label for="toggle-graph-view">Show Graph View</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Table will be rendered here by nodes-io-service.js -->
+                    <table class="table is-fullwidth is-striped is-hoverable" id="nodes-io-table"></table>
+                    
+                    <!-- Graph will be rendered here -->
+                    <div id="nodes-io-graph"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Add toggle functionality for graph/table view -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const toggleSwitch = document.getElementById('toggle-graph-view');
+            const graphDiv = document.getElementById('nodes-io-graph');
+            
+            if (toggleSwitch && graphDiv) {
+                toggleSwitch.addEventListener('change', function() {
+                    graphDiv.style.display = this.checked ? 'block' : 'none';
+                });
+            }
+        });
+    </script>
+</body>
+</html>

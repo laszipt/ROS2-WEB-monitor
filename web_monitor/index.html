@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <!-- Meta tags -->
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>ROS2 Web Monitor</title>
+        
+        <!-- Critical CSS Inlined for immediate rendering -->
+        <style id="critical-css">
+            /* Critical styles for above-the-fold content */
+            body {
+                margin: 0;
+                font-family: sans-serif;
+                background-color: #f5f5f5;
+            }
+            .sidebar {
+                height: 100vh;
+                background-color: #363636;
+                color: #f5f5f5;
+                position: fixed;
+                left: 0;
+                top: 0;
+                width: 16.66%; /* Equivalent to column is-2 */
+            }
+            .sidebar-brand {
+                padding: 1.5rem;
+                text-align: center;
+            }
+            .main-content {
+                margin-left: 16.66%; /* Match sidebar width */
+                padding: 1.5rem;
+            }
+            .section-container {
+                display: none;
+            }
+            .section-container.is-active {
+                display: block;
+            }
+            .status-indicator {
+                width: 12px;
+                height: 12px;
+                border-radius: 50%;
+                display: inline-block;
+                margin-right: 10px;
+            }
+            .connected { background-color: #23d160; }
+            .disconnected { background-color: #ff3860; }
+            .attempting { background-color: #ffdd57; }
+            
+            /* Loading indicator */
+            #loading-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(255, 255, 255, 0.9);
+                z-index: 9999;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                transition: opacity 0.3s ease;
+            }
+            #loading-overlay.hidden {
+                opacity: 0;
+                pointer-events: none;
+            }
+            .loading-spinner {
+                border: 4px solid #f3f3f3;
+                border-top: 4px solid #3273dc;
+                border-radius: 50%;
+                width: 40px;
+                height: 40px;
+                animation: spin 1s linear infinite;
+            }
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+            
+            /* Nodes I/O specific */
+            .node-controls { display:flex; justify-content:space-between; align-items:center; }
+            #nodes-io-graph { margin-top:1rem; border-radius:4px; }
+        </style>
+        
+        <!-- Resource hints for critical resources -->
+        <link rel="preload" href="lib/roslib.min.js" as="script">
+        <link rel="preload" href="lib/chart.js" as="script">
+        <link rel="preload" href="lib/bulma.min.css" as="style">
+
+        <!-- Font Awesome (local) -->
+        <link rel="stylesheet" href="lib/fontawesome/css/all.min.css">
+        
+        <!-- CSS loads with optimized loading -->
+        <link rel="stylesheet" href="lib/bulma.min.css">
+        
+        <!-- Non-critical styles moved below critical CSS -->
+        <style>
+            /* These styles are not needed for initial render */
+            pre.console-output {
+                max-height: 300px;
+                overflow-y: auto;
+                background-color: #2d2d2d;
+                color: #f5f5f5;
+                padding: 1rem;
+                border-radius: 5px;
+            }
+            .debug-section {
+                margin-top: 2rem;
+                border-top: 1px solid #dbdbdb;
+                padding-top: 1rem;
+            }
+            .sidebar-menu {
+                padding-top: 2rem;
+            }
+            .sidebar-menu a {
+                color: #f5f5f5;
+                padding: 1rem;
+                display: block;
+                transition: all 0.2s ease;
+            }
+        </style>
+    </head>
+    <body>
+        <!-- Loading overlay -->
+        <div id="loading-overlay">
+            <div class="loading-spinner"></div>
+            <p>Loading ROS2 Web Monitor...</p>
+        </div>
+        
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar column is-2">
+            <div class="sidebar-brand has-text-centered p-4">
+                <h2 class="title is-4 has-text-white">BORS Monitor</h2>
+            </div>
+            
+            <!-- Connection status at the top -->
+            <div class="connection-indicator p-2">
+                <div class="level is-mobile">
+                    <div class="level-left">
+                        <div class="level-item">
+                            <span class="status-indicator disconnected" id="status-indicator"></span>
+                            <span id="connection-text">Disconnected</span>
+                        </div>
+                    </div>
+                    <div class="level-right">
+                        <div class="level-item">
+                            <button id="reconnectBtn" class="button is-small">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="sidebar-menu">
+                <ul class="menu-list">
+                    <li><a href="#" data-target="nodes-section" class="menu-item is-active"><i class="fas fa-project-diagram mr-2"></i> Nodes</a></li>
+                    <li><a href="#" data-target="topics-section" class="menu-item"><i class="fas fa-broadcast-tower mr-2"></i> Topics</a></li>
+                    <li><a href="#" data-target="diagnostics-section" class="menu-item"><i class="fas fa-stethoscope mr-2"></i> Diagnostics</a></li>
+                    <li><a href="#" data-target="parameters-section" class="menu-item"><i class="fas fa-sliders-h mr-2"></i> Parameters</a></li>
+                    <li><a href="#" data-target="logs-section" class="menu-item"><i class="fas fa-clipboard-list mr-2"></i> Logs</a></li>
+                    <li><a href="#" data-target="system-section" class="menu-item"><i class="fas fa-server mr-2"></i> System Status</a></li>
+                    <li><a href="#" data-target="nodes-io-section" class="menu-item"><i class="fas fa-project-diagram mr-2"></i> Nodes I/O</a></li>
+                    <li><a href="#" data-target="video-section" class="menu-item"><i class="fas fa-video mr-2"></i> Video Streaming</a></li>
+                </ul>
+            </div>
+            
+            <!-- Connection status moved to top of the sidebar -->
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Nodes Section -->
+            <div id="nodes-section" class="section-container is-active">
+                <h1 class="title">ROS2 Nodes</h1>
+                <div class="box">
+
+                    <table class="table is-fullwidth is-hoverable" id="nodes-table">
+                        <thead>
+                            <tr>
+                                <th>Node Name</th>
+                            </tr>
+                        </thead>
+                        <tbody id="nodes-list">
+                            <!-- Nodes will be listed here -->
+                            <tr>
+                                <td class="has-text-centered">Loading nodes...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Topics Section -->
+            <div id="topics-section" class="section-container">
+                <h1 class="title">ROS2 Topics</h1>
+                <div class="box">
+
+                    <table class="table is-fullwidth is-hoverable" id="topics-table">
+                        <thead>
+                            <tr>
+                                <th>Topic Name</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="topics-list">
+                            <!-- Topics will be listed here -->
+                            <tr>
+                                <td colspan="2" class="has-text-centered">Loading topics...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Diagnostics Section -->
+            <div id="diagnostics-section" class="section-container">
+                <h1 class="title">ROS2 Diagnostics</h1>
+                <div class="box">
+                    <div id="diagnostics-placeholder" class="notification is-info">
+                        System Diagnostics will be displayed here.<br>
+                        This section will be implemented later.
+                    </div>
+                    <div id="diagnostics-table-container"></div>
+                </div>
+            </div>
+
+            <!-- Parameters Section -->
+            <div id="parameters-section" class="section-container">
+                <h1 class="title">ROS2 Parameters - YAML</h1>
+                <div class="box">
+                    <div id="parameters-content"></div>
+                </div>
+            </div>
+
+            <!-- Logs Section -->
+            <div id="logs-section" class="section-container">
+                <div class="box">
+                    <div class="level mb-3">
+                        <div class="level-left">
+                            <h3 class="title is-5" id="log-file-name">ROS2 Node Status</h3>
+                        </div>
+                        <div class="level-right">
+                            <button class="button is-small is-info" onclick="fetchLogNodes()">
+                                <span class="icon is-small">
+                                    <i class="fas fa-sync-alt"></i>
+                                </span>
+                                <span>Refresh</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="logs-content" class="content">
+                        <div class="has-text-centered p-5">
+                            <p><i class="fas fa-spinner fa-spin"></i> Loading node status...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Nodes I/O Section -->
+            <div id="nodes-io-section" class="section-container">
+                <h1 class="title">ROS2 Nodes ↔ Topics I/O</h1>
+                <div class="box">
+                    <div class="node-controls mb-3">
+                        <div class="buttons">
+                            <button class="button is-primary" id="nodes-io-show">
+                                <span class="icon"><i class="fas fa-sync-alt"></i></span>
+                                <span>Refresh</span>
+                            </button>
+                            <button class="button is-info" id="nodes-io-download">
+                                <span class="icon"><i class="fas fa-download"></i></span>
+                                <span>Download CSV</span>
+                            </button>
+                        </div>
+                        <div class="field">
+                            <div class="control">
+                                <input type="checkbox" id="toggle-graph-view" class="switch is-rounded is-info" checked>
+                                <label for="toggle-graph-view">Show Graph View</label>
+                            </div>
+                        </div>
+                    </div>
+                    <table class="table is-fullwidth is-striped is-hoverable" id="nodes-io-table"></table>
+                    <div id="nodes-io-graph" style="height:600px; border:1px solid #ddd;"></div>
+                </div>
+            </div>
+
+            <!-- Video Streaming Section -->
+            <div id="video-section" class="section-container">
+                <h1 class="title">OAK Detection Video Stream</h1>
+                <div class="box">
+                    <div class="columns">
+                        <div class="column">
+                            <div class="field is-grouped">
+                                <div class="control">
+                                    <button id="startStreamBtn" class="button is-primary">
+                                        <i class="fas fa-play mr-2"></i>Start Stream
+                                    </button>
+                                </div>
+                                <div class="control">
+                                    <button id="stopStreamBtn" class="button is-danger" disabled>
+                                        <i class="fas fa-stop mr-2"></i>Stop Stream
+                                    </button>
+                                </div>
+                                <div class="control">
+                                    <button id="refreshStreamBtn" class="button is-info">
+                                        <i class="fas fa-sync-alt mr-2"></i>Refresh
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="column is-narrow">
+                            <div class="field">
+                                <label class="label">Stream Status:</label>
+                                <span id="streamStatus" class="tag is-warning">Disconnected</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="video-container" style="text-align: center; margin-top: 20px;">
+                        <div id="videoPlaceholder" class="notification is-info">
+                            <p><i class="fas fa-info-circle mr-2"></i>Click "Start Stream" to begin video streaming from the OAK detection node.</p>
+                            <p class="is-size-7 mt-2">Stream URL: <code>http://localhost:5001/oak_detection_image</code></p>
+                        </div>
+                        <img id="videoStream" 
+                             style="display: none; max-width: 100%; height: auto; border: 2px solid #3273dc; border-radius: 6px;" 
+                             alt="OAK Detection Video Stream">
+                    </div>
+                    
+                    <div class="notification is-info mt-4" style="display: none;" id="streamInfo">
+                        <p><i class="fas fa-info-circle mr-2"></i>This stream shows the live video feed from the OAK detection node with object detection overlays.</p>
+                        <p class="is-size-7 mt-2">The stream includes bounding boxes, confidence scores, and depth information for detected objects.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Status Section -->
+            <div id="system-section" class="section-container">
+                <h1 class="title">System Status</h1>
+                <div class="box">
+                    <div class="columns">
+                        <div class="column">
+                            <h2 class="subtitle has-text-centered">CPU Usage</h2>
+                            <div class="chart-container" style="position: relative; height:220px;">
+                                <canvas id="cpuChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="column">
+                            <h2 class="subtitle has-text-centered">RAM Usage</h2>
+                            <div class="chart-container" style="position: relative; height:220px;">
+                                <canvas id="ramChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="column">
+                            <h2 class="subtitle has-text-centered">Disk Usage</h2>
+                            <div class="chart-container" style="position: relative; height:220px;">
+                                <canvas id="diskChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="notification is-info mt-4">
+                        <p><i class="fas fa-info-circle mr-2"></i> System metrics are obtained from ROS2 diagnostics topic, filtering for SystemLoadMonitor messages.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Custom sequential script loader -->
+            <script>
+// --- Refactored JS Loader ---
+function loadScriptsSequentially() {
+    const loadingMessage = document.querySelector('.loading-message');
+    const loadingOverlay = document.getElementById('loading-overlay');
+
+    // Priority scripts that must be loaded first
+    const priorityScripts = [
+        { src: 'lib/roslib.min.js', name: 'ROSLIB' },
+        { src: 'lib/chart.js', name: 'Chart.js' },
+        { src: 'https://cdn.jsdelivr.net/npm/d3@7', name: 'D3' },
+        { src: 'https://unpkg.com/d3-svg-annotation@2', name: 'd3-svg-annotation' }
+    ];
+
+    // App scripts (ensure each only once)
+    const scripts = [
+        { src: 'js/ros-connection.js?v=' + Date.now(), name: 'ROS Connection' },
+        { src: 'js/ui-controller.js?v=' + Date.now(), name: 'UI Controller' },
+        { src: 'js/nodes-service.js?v=' + Date.now(), name: 'Nodes Service' },
+        { src: 'js/topics-service.js?v=' + Date.now(), name: 'Topics Service' },
+        { src: 'js/logs-service.js?v=' + Date.now(), name: 'Logs Service' },
+        { src: 'js/diagnostics-service.js?v=' + Date.now(), name: 'Diagnostics Service' },
+        { src: 'js/parameters-service.js?v=' + Date.now(), name: 'Parameters Service' },
+        { src: 'js/system-monitor.js?v=' + Date.now(), name: 'System Monitor' },
+        { src: 'js/nodes-io-service.js?v=' + Date.now(), name: 'Nodes IO Service' },
+        { src: 'js/video-streaming.js?v=' + Date.now(), name: 'Video Streaming' },
+        { src: 'js/dashboard-init.js?v=' + Date.now(), name: 'Dashboard' }
+    ];
+
+    // Helper: only inject if not already present
+    function isScriptLoaded(src) {
+        return !!document.querySelector(`script[src="${src}"]`);
+    }
+
+    // Load scripts in sequence
+    function loadScriptArray(arr, idx = 0) {
+        if (idx >= arr.length) return Promise.resolve();
+        const script = arr[idx];
+        if (loadingMessage) loadingMessage.textContent = `Loading ${script.name}...`;
+        return new Promise((resolve, reject) => {
+            if (isScriptLoaded(script.src)) {
+                console.log(`[LOADER] Script already loaded: ${script.src}`);
+                loadScriptArray(arr, idx + 1).then(resolve).catch(reject);
+                return;
+            }
+            const scriptElement = document.createElement('script');
+            scriptElement.src = script.src;
+            scriptElement.async = false;
+            scriptElement.onload = () => {
+                console.log(`[LOADER] Loaded script: ${script.name}`);
+                loadScriptArray(arr, idx + 1).then(resolve).catch(reject);
+            };
+            scriptElement.onerror = (error) => {
+                console.error(`[LOADER] Failed to load script: ${script.name}`, error);
+                setTimeout(() => {
+                    console.log(`[LOADER] Retrying: ${script.name}`);
+                    loadScriptArray(arr, idx).then(resolve).catch(reject);
+                }, 1000);
+            };
+            document.body.appendChild(scriptElement);
+        });
+    }
+
+    // Sequential loading
+    loadScriptArray(priorityScripts)
+        .then(() => loadScriptArray(scripts))
+        .then(() => {
+            window.ALL_SCRIPTS_LOADED = true;
+            if (loadingOverlay) loadingOverlay.classList.add('hidden');
+            
+            // Initialize UI controllers first (before other services)
+            if (typeof initializeMenu === 'function') {
+                console.log("Manually initializing UI controllers...");
+                initializeMenu();
+            }
+            
+            // Initialize the dashboard
+            if (typeof initializeDashboard === 'function') {
+                console.log("Initializing dashboard...");
+                initializeDashboard();
+            }
+            
+            // Manually initialize services
+            if (typeof initNodesService === 'function') {
+                console.log("Manually initializing nodes service...");
+                initNodesService();
+            }
+            
+            if (typeof initTopicsService === 'function') {
+                console.log("Manually initializing topics service...");
+                initTopicsService();
+            }
+            
+            if (typeof initLogsService === 'function') {
+                console.log("Manually initializing logs service...");
+                initLogsService();
+            }
+            
+            // Initialize system monitoring
+            if (typeof initSystemMonitoring === 'function') {
+                console.log("Manually initializing system monitoring...");
+                initSystemMonitoring();
+            }
+            
+            // NOW signal connection can happen - AFTER all initialization
+            setTimeout(() => {
+                console.log("All initialization complete, starting ROS connection...");
+                if (typeof window.startRosConnection === 'function') {
+                    console.log("Signaling ROS connection to start...");
+                    window.startRosConnection();
+                }
+            }, 500);
+        });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    if (!window._loaderStarted) {
+        window._loaderStarted = true;
+        console.log("DOM content loaded, starting script loading sequence...");
+        loadScriptsSequentially();
+    }
+});
+// --- End Refactored JS Loader ---
+</script>
+        
+        <!-- Direct debug script to trace logs section activation -->
+        <script>
+            // Add direct event listeners to trace logs section activation
+            document.addEventListener('DOMContentLoaded', function() {
+                console.log('[DIRECT DEBUG] DOMContentLoaded event fired');
+                
+                // Listen for menu click on logs section
+                const logsMenuItem = document.querySelector('.menu-item[data-target="logs-section"]');
+                if (logsMenuItem) {
+                    console.log('[DIRECT DEBUG] Found logs menu item, adding listener');
+                    logsMenuItem.addEventListener('click', function() {
+                        console.log('[DIRECT DEBUG] Logs menu item clicked directly');
+                    });
+                } else {
+                    console.log('[DIRECT DEBUG] Could not find logs menu item');
+                }
+                
+                // Listen for events directly
+                document.addEventListener('section-activated', function(e) {
+                    console.log('[DIRECT DEBUG] section-activated event received with detail:', e.detail);
+                });
+                
+                // Find the logs-content div and report its status
+                setTimeout(function() {
+                    const logsContent = document.getElementById('logs-content');
+                    console.log('[DIRECT DEBUG] logs-content element found:', !!logsContent);
+                    if (logsContent) {
+                        console.log('[DIRECT DEBUG] logs-content innerHTML:', logsContent.innerHTML.substring(0, 50) + '...');
+                    }
+                }, 1000);
+            });
+        </script>
+    </body>
+</html>

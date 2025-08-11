@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple ROS2 WebSocket Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            line-height: 1.6;
+        }
+        #status {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .connected { color: green; }
+        .disconnected { color: red; }
+        .attempting { color: orange; }
+        pre {
+            background-color: #f4f4f4;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        button {
+            padding: 8px 16px;
+            margin: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>Simple ROS2 WebSocket Test</h1>
+    
+    <div id="status" class="disconnected">Status: Disconnected</div>
+    
+    <div>
+        <button id="connectBtn">Connect to ROS Bridge</button>
+        <button id="listNodesBtn" disabled>List Nodes</button>
+        <button id="sendTestBtn" disabled>Send Test Message</button>
+    </div>
+    
+    <h2>Console Output:</h2>
+    <pre id="console"></pre>
+    
+    <h2>Nodes:</h2>
+    <pre id="nodesList"></pre>
+    
+    <script>
+        // Configuration
+        const ROSBRIDGE_URL = 'ws://localhost:9090';
+        let ws = null;
+        
+        // DOM Elements
+        const statusElement = document.getElementById('status');
+        const consoleElement = document.getElementById('console');
+        const nodesListElement = document.getElementById('nodesList');
+        const connectBtn = document.getElementById('connectBtn');
+        const listNodesBtn = document.getElementById('listNodesBtn');
+        const sendTestBtn = document.getElementById('sendTestBtn');
+        
+        // Helper function to log messages
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            console.log(`[${timestamp}] ${message}`);
+            consoleElement.textContent += `[${timestamp}] ${message}\n`;
+            consoleElement.scrollTop = consoleElement.scrollHeight;
+        }
+        
+        // Update UI connection status
+        function updateStatus(status, message) {
+            statusElement.className = status;
+            statusElement.textContent = `Status: ${message}`;
+        }
+        
+        // Connect to ROS Bridge
+        function connectToRosBridge() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                log("WebSocket already connected");
+                return;
+            }
+            
+            updateStatus('attempting', 'Connecting...');
+            log("Attempting to connect to ROS Bridge at " + ROSBRIDGE_URL);
+            
+            try {
+                ws = new WebSocket(ROSBRIDGE_URL);
+                
+                ws.onopen = function() {
+                    log("WebSocket connection established successfully");
+                    updateStatus('connected', 'Connected');
+                    listNodesBtn.disabled = false;
+                    sendTestBtn.disabled = false;
+                    connectBtn.textContent = 'Reconnect';
+                };
+                
+                ws.onclose = function(event) {
+                    log(`WebSocket connection closed. Code: ${event.code}, Reason: ${event.reason}`);
+                    updateStatus('disconnected', 'Disconnected');
+                    listNodesBtn.disabled = true;
+                    sendTestBtn.disabled = true;
+                    ws = null;
+                };
+                
+                ws.onerror = function(error) {
+                    log("WebSocket error: " + JSON.stringify(error));
+                    updateStatus('disconnected', 'Connection Error');
+                };
+                
+                ws.onmessage = function(event) {
+                    const data = JSON.parse(event.data);
+                    log("Received message: " + JSON.stringify(data));
+                    
+                    // Handle service call responses
+                    if (data.op === 'service_response') {
+                        if (data.id && data.id.startsWith('get_nodes')) {
+                            // Parse and display node list
+                            if (data.values && data.values.nodes) {
+                                const nodes = data.values.nodes;
+                                nodesListElement.textContent = JSON.stringify(nodes, null, 2);
+                                log(`Received list of ${nodes.length} nodes`);
+                            } else {
+                                log("Received node list response but format is unexpected");
+                                nodesListElement.textContent = JSON.stringify(data, null, 2);
+                            }
+                        }
+                    }
+                };
+            } catch (error) {
+                log("Error creating WebSocket: " + error.message);
+                updateStatus('disconnected', 'Connection Failed');
+            }
+        }
+        
+        // List ROS nodes via service call
+        function listNodes() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log("Cannot list nodes: WebSocket not connected");
+                return;
+            }
+            
+            log("Requesting node list...");
+            nodesListElement.textContent = "Loading...";
+            
+            const request = {
+                op: 'call_service',
+                service: '/rosapi/nodes',
+                args: {},
+                id: 'get_nodes_' + Date.now()
+            };
+            
+            ws.send(JSON.stringify(request));
+            log("Node list request sent");
+        }
+        
+        // Send a test message to the WebSocket
+        function sendTestMessage() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log("Cannot send test: WebSocket not connected");
+                return;
+            }
+            
+            const testMessage = {
+                op: 'echo',
+                data: 'Test message at ' + new Date().toISOString()
+            };
+            
+            ws.send(JSON.stringify(testMessage));
+            log("Test message sent: " + JSON.stringify(testMessage));
+        }
+        
+        // Event listeners
+        connectBtn.addEventListener('click', connectToRosBridge);
+        listNodesBtn.addEventListener('click', listNodes);
+        sendTestBtn.addEventListener('click', sendTestMessage);
+        
+        // Initial log
+        log("Page loaded. Click 'Connect to ROS Bridge' to begin.");
+    </script>
+</body>
+</html>

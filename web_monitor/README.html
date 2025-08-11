@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BORS Web Dashboard - README</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+    <style>
+        .content pre {
+            background-color: #f5f5f5;
+            padding: 1rem;
+            border-radius: 4px;
+        }
+        .hero {
+            margin-bottom: 2rem;
+        }
+        .section {
+            padding: 2rem 1.5rem;
+        }
+    </style>
+</head>
+<body>
+    <section class="hero is-primary">
+        <div class="hero-body">
+            <div class="container">
+                <h1 class="title">BORS Web Dashboard</h1>
+                <h2 class="subtitle">Monitoring and control interface for ROS systems</h2>
+            </div>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="container">
+            <div class="content">
+                <h2>Overview</h2>
+                <p>
+                    The BORS Web Dashboard provides a modern, browser-based interface for monitoring and controlling
+                    ROS (Robot Operating System) applications. It uses WebSockets to establish a real-time connection
+                    between the browser and ROS, making it easy to visualize topics, monitor system performance,
+                    and interact with your ROS environment.
+                </p>
+
+                <h2>Features</h2>
+                <ul>
+                    <li>Real-time monitoring of ROS topics</li>
+                    <li>System resource visualization (CPU, memory, disk)</li>
+                    <li>Node and topic listings</li>
+                    <li>Message logging</li>
+                    <li>Responsive design works on desktops, tablets, and mobile devices</li>
+                </ul>
+
+                <h2>Prerequisites</h2>
+                <ul>
+                    <li>ROS 2 environment</li>
+                    <li>Python 3.6+</li>
+                    <li>Modern web browser</li>
+                </ul>
+
+                <h2>Installation</h2>
+                <p>Install the required Python packages:</p>
+                <pre>pip install websockets psutil</pre>
+
+                <h2>Usage</h2>
+                <h3>Starting the WebSocket bridge</h3>
+                <p>Run the WebSocket bridge to connect your ROS environment to the web interface:</p>
+                <pre>python3 ros_ws_bridge.py</pre>
+
+                <p>Optional command line arguments:</p>
+                <ul>
+                    <li><code>--host</code>: Host to bind to (default: 0.0.0.0)</li>
+                    <li><code>--port</code>: Port to bind to (default: 9090)</li>
+                    <li><code>--ros-node-name</code>: ROS node name (default: ros_ws_bridge)</li>
+                </ul>
+
+                <h3>Accessing the dashboard</h3>
+                <p>Once the WebSocket bridge is running, open the dashboard in your web browser:</p>
+                <pre>http://localhost:9090</pre>
+                <p>Or if accessing from another computer:</p>
+                <pre>http://[server-ip-address]:9090</pre>
+
+                <h2>Dashboard Components</h2>
+                <h3>Navigation</h3>
+                <p>
+                    The navigation bar at the top provides quick access to different sections of the dashboard
+                    and displays the connection status to the WebSocket server.
+                </p>
+
+                <h3>System Status</h3>
+                <p>
+                    Monitor system resources and overall status at a glance, including:
+                </p>
+                <ul>
+                    <li>ROS connection status</li>
+                    <li>System operational status</li>
+                    <li>Active node count</li>
+                </ul>
+
+                <h3>Performance Charts</h3>
+                <p>
+                    Visualize system performance metrics with real-time charts:
+                </p>
+                <ul>
+                    <li>CPU and memory usage over time</li>
+                    <li>Resource allocation breakdown</li>
+                </ul>
+
+                <h3>Topics and Messages</h3>
+                <p>
+                    View active topics and their messages:
+                </p>
+                <ul>
+                    <li>List of all available topics with types and frequencies</li>
+                    <li>Real-time message log for subscribed topics</li>
+                </ul>
+
+                <h2>Customization</h2>
+                <p>
+                    The dashboard is built with Bulma CSS framework, making it easy to customize:
+                </p>
+                <ul>
+                    <li>Modify <code>index.html</code> to change the layout and components</li>
+                    <li>Edit <code>js/main.js</code> to adjust functionality and data handling</li>
+                    <li>Customize <code>ros_ws_bridge.py</code> to modify the WebSocket server behavior</li>
+                </ul>
+
+                <h2>JavaScript API</h2>
+                <p>
+                    The dashboard exposes a JavaScript API for custom integrations:
+                </p>
+                <pre>// Subscribe to a ROS topic
+BORS.subscribeToTopic('/my_topic', 'std_msgs/String');
+
+// Listen for messages from a specific topic
+BORS.addMessageListener('topic:/my_topic', (message) => {
+    console.log('Received message:', message);
+});
+
+// Send a custom command to the WebSocket server
+BORS.sendMessage('custom_command', { param: 'value' });</pre>
+
+                <h2>Troubleshooting</h2>
+                <h3>Connection Issues</h3>
+                <p>
+                    If the dashboard shows "Disconnected":
+                </p>
+                <ul>
+                    <li>Verify that the WebSocket server is running</li>
+                    <li>Check if the correct WebSocket URL is configured in the browser</li>
+                    <li>Ensure no firewall is blocking the WebSocket port</li>
+                </ul>
+
+                <h3>Missing ROS Topics</h3>
+                <p>
+                    If expected ROS topics are not showing up:
+                </p>
+                <ul>
+                    <li>Verify that your ROS environment is properly sourced</li>
+                    <li>Check if the topics are actually active in ROS (using <code>ros2 topic list</code>)</li>
+                </ul>
+
+                <h2>License</h2>
+                <p>This project is licensed under the MIT License.</p>
+            </div>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <div class="content has-text-centered">
+            <p>
+                <strong>BORS Web Dashboard</strong> - A ROS monitoring and control interface
+            </p>
+        </div>
+    </footer>
+</body>
+</html>
