@@ -30,7 +30,7 @@
     <p>Your browser doesn't support HTML video. <a href="https://github.com/laszipt/ROS2-WEB-monitor/blob/main/Screencast%20from%202025-08-08%2009%3A43%3A21.webm">Download the video</a> instead.</p>
 </video>
 
-<p><em>Screencast demonstration of ROS2-WEB-monitor interface showing real-time monitoring capabilities</em></p>
+<p><em>Live demonstration of ROS2-WEB-monitor interface showing real-time node monitoring, topic visualization, and web dashboard features</em></p>
 
 
 <h2>📋 Prerequisites</h2>
