@@ -276,12 +276,14 @@ flake8 ros2_web_monitor/</code></pre>
 </ul>
 
 <hr>
-
-<p align="center">⭐ <strong>Star this repository if you find it useful!</strong></p>
-
+ 
+<!-- QR code image at the bottom -->
+<div align="center" style="margin-top: 2em;">
+    <a href="https://buymeacoffee.com/laszipt" target="_blank">
+        <img src="bmc_qr (4).png" alt="BMC QR Code" width="200"/>
+        <p><em>Buy me a coffee if you use it.</em></p>
+    </a>
+</div>
 <hr>
 
-<p><em>Note: This README was generated based on the project description and common patterns for ROS2 web monitoring tools. Please verify and update the content according to your actual implementation.</em></p>
 
-</body>
-</html>
