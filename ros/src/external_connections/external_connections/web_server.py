@@ -336,7 +336,7 @@ class WebServerNode(Node):
                 def handle_param_files_request(self):
                     try:
                         # Determine workspace root (one level above the web root)
-                        workspace_root = os.path.abspath(os.path.join(os.getcwd(), '..'))
+                        workspace_root = os.path.abspath(os.path.join(serve_directory, '..'))
                         param_root = os.path.join(workspace_root, 'ros', 'src')
                         yaml_files = []
                         for root, _, files in os.walk(param_root):
@@ -375,7 +375,7 @@ class WebServerNode(Node):
                         self.send_error(400, "No path specified")
                         return
                     try:
-                        workspace_root = os.path.abspath(os.path.join(os.getcwd(), '..'))
+                        workspace_root = os.path.abspath(os.path.join(serve_directory, '..'))
                         param_root = os.path.join(workspace_root, 'ros', 'src')
                         # Normalize and ensure file is within param_root
                         abs_path = os.path.normpath(os.path.join(param_root, rel_path))
@@ -417,19 +417,17 @@ class WebServerNode(Node):
                         self.send_error(400, 'No path specified')
                         return
                     try:
-                        workspace_root = os.path.abspath(os.path.join(os.getcwd(), '..'))
+                        workspace_root = os.path.abspath(os.path.join(serve_directory, '..'))
                         param_root = os.path.join(workspace_root, 'ros', 'src')
                         abs_path = os.path.normpath(os.path.join(param_root, rel_path))
                         if not abs_path.startswith(param_root):
                             self.send_error(403, 'Access denied')
                             return
                         # Ensure directory exists
-                        if not os.path.isfile(abs_path):
-                            self.send_error(404, 'File not found')
-                            return
+                        os.makedirs(os.path.dirname(abs_path), exist_ok=True)
                         with open(abs_path, 'w') as f:
                             f.write(body)
-                        resp = json.dumps({'status':'ok'}).encode()
+                        resp = json.dumps({'status': 'ok'}).encode()
                         self.send_response(200)
                         self.send_header('Content-Type','application/json')
                         self.send_header('Content-Length',str(len(resp)))
