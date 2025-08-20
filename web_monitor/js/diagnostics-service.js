@@ -55,7 +55,7 @@
             .map(stat=>{
                 const lvlClass = levelToClass(stat.level);
                 const levelText = levelToText(stat.level);
-                const timeStr = new Date().toLocaleTimeString();
+                const timeStr = stat.receivedAt ? new Date(stat.receivedAt).toLocaleTimeString() : '-';
                 const shortMsg = stat.message.length>60 ? stat.message.slice(0,60)+'…' : stat.message;
 
                 // Build details list (hardware id + key/values)
@@ -130,7 +130,8 @@
         // This merges statuses that share the same name but differ in hardware_id,
         // ensuring the table shows just one row per unique name.
         msg.status.forEach(stat=>{
-            diagMap.set(stat.name, stat);
+            const enriched = { ...stat, receivedAt: Date.now() };
+            diagMap.set(stat.name, enriched);
         });
         console.log(`[Diagnostics] Stored ${msg.status.length} status entries (total unique=${diagMap.size})`);
         renderTable();
