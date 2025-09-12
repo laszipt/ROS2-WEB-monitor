@@ -19,6 +19,7 @@ let currentTopicSubscription = null;
 // Frequency measurement variables
 let frequencyMeasurementActive = false;
 let messageTimestamps = [];
+let messageDelays = [];
 let measurementStartTime = 0;
 let frequencyUpdateInterval = null;
 
@@ -613,6 +614,7 @@ function startFrequencyMeasurement(topicName) {
 
     frequencyMeasurementActive = true;
     messageTimestamps = [];
+    messageDelays = [];
     measurementStartTime = Date.now(); // Start the timer
 
     const freqDisplay = document.getElementById('topic-frequency');
@@ -681,6 +683,29 @@ function subscribeForFrequency(topicName, topicType) {
         const message = event.detail;
         if (message && message.topic === topicName) {
             messageTimestamps.push(Date.now());
+
+            // Try to compute delay from header.stamp (supports ROS1 and ROS2 fields)
+            try {
+                const msg = message.msg;
+                const header = msg && msg.header ? msg.header : null;
+                const stamp = header && header.stamp ? header.stamp : null;
+                if (stamp) {
+                    const secs = (typeof stamp.secs === 'number') ? stamp.secs :
+                                 (typeof stamp.sec === 'number') ? stamp.sec : null;
+                    const nsecs = (typeof stamp.nsecs === 'number') ? stamp.nsecs :
+                                  (typeof stamp.nanosec === 'number') ? stamp.nanosec : 0;
+                    if (secs !== null) {
+                        const headerTimeMs = secs * 1000 + Math.floor(nsecs / 1e6);
+                        let delayMs = Date.now() - headerTimeMs;
+                        if (!isNaN(delayMs) && isFinite(delayMs)) {
+                            if (delayMs < 0) delayMs = 0; // Guard against clock skew
+                            messageDelays.push({ arrival: Date.now(), delay: delayMs });
+                        }
+                    }
+                }
+            } catch (e) {
+                // Ignore delay calculation errors and continue
+            }
         }
     };
 
@@ -746,6 +771,7 @@ function stopFrequencyMeasurement() {
     }
 
     messageTimestamps = [];
+    messageDelays = [];
 }
 
 function updateFrequencyDisplay() {
@@ -765,6 +791,8 @@ function updateFrequencyDisplay() {
 
     const cutoffTime = Date.now() - MEASUREMENT_WINDOW;
     messageTimestamps = messageTimestamps.filter(timestamp => timestamp >= cutoffTime);
+    // Prune delay records to the same window
+    messageDelays = messageDelays.filter(rec => rec && rec.arrival >= cutoffTime);
 
     if (messageTimestamps.length === 0) {
         freqLine.className = 'has-text-danger';
@@ -781,8 +809,16 @@ function updateFrequencyDisplay() {
     const windowSizeSeconds = (Date.now() - cutoffTime) / 1000;
     const frequency = messageTimestamps.length / windowSizeSeconds;
 
+    // Compute average delay if available
+    const validDelays = messageDelays.filter(r => typeof r.delay === 'number' && isFinite(r.delay));
+    let displayText = `${frequency.toFixed(2)} Hz`;
+    if (validDelays.length > 0) {
+        const avgDelay = validDelays.reduce((sum, r) => sum + r.delay, 0) / validDelays.length;
+        displayText += `, avg delay ${avgDelay.toFixed(0)} ms`;
+    }
+
     freqLine.className = 'has-text-success';
-    freqDisplay.textContent = `${frequency.toFixed(2)} Hz`;
+    freqDisplay.textContent = displayText;
 }
 
 function queryTopicPublishers(topicName) {
