@@ -10,7 +10,7 @@ def generate_launch_description():
     
     # Parameters
     port = LaunchConfiguration('port', default='8080')
-    web_dir = '/home/tamas/BORS1-ROS2/web_monitor'
+    web_dir = '/home/laszipt/Documents/Projects/BORS1-ROS2/web_monitor'
     
     # Launch arguments
     port_arg = DeclareLaunchArgument(
