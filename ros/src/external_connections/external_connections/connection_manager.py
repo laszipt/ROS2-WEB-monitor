@@ -102,15 +102,16 @@ class ConnectionManager(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    connection_manager = ConnectionManager()
-    
+    node = None
     try:
-        rclpy.spin(connection_manager)
+        node = ConnectionManager()
+        rclpy.spin(node)
     except KeyboardInterrupt:
         pass
     finally:
-        connection_manager.destroy_node()
-        # destruction cleans up; avoid calling shutdown twice
+        if node is not None:
+            node.destroy_node()
+        rclpy.try_shutdown()
 
 if __name__ == "__main__":
     main()

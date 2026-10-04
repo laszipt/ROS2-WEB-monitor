@@ -316,8 +316,8 @@ class WebServerNode(Node):
                     try:
                         with open(matched_path, 'r') as f:
                             content_lines = list(islice(f, 100))
-                        if sum(1 for _ in open(matched_path, 'r')) > 100:
-                            content_lines.append('\n...[truncated to first 100 lines]')
+                            if f.readline():  # one extra read — no full-file scan needed
+                                content_lines.append('\n...[truncated to first 100 lines]')
                         content = ''.join(content_lines)
                     except Exception as e:
                         self.send_error(500, f"Error reading log file: {e}")
@@ -581,7 +581,11 @@ class WebServerNode(Node):
         # External rosbridge WebSocket endpoint to monitor
         self.websocket_test_host = "localhost"
         self.websocket_test_port = 9090
-        
+
+        # Probe rosbridge reachability in a background thread — never on the executor
+        self._ws_probe_thread = threading.Thread(target=self._ws_probe_loop, daemon=True)
+        self._ws_probe_thread.start()
+
         # Create diagnostic timer
         self.diagnostic_timer = self.create_timer(1.0, self.diagnostic_updater.update)
         
@@ -608,19 +612,23 @@ class WebServerNode(Node):
         if self.websocket_connections > 0:
             self.websocket_connections -= 1
 
+    def _ws_probe_loop(self):
+        """Background thread: probe rosbridge reachability every 5s (never on executor)."""
+        while True:
+            try:
+                with socket.create_connection(
+                    (self.websocket_test_host, self.websocket_test_port), timeout=2.0
+                ):
+                    self.websocket_server_active = True
+            except (socket.timeout, ConnectionRefusedError, OSError):
+                self.websocket_server_active = False
+            time.sleep(5.0)
+
     def websocket_diagnostic(self, stat):
-        """Diagnostic task for WebSocket status"""
-        # Try connecting to rosbridge_websocket (quick TCP connect, 0.5s timeout)
+        """Diagnostic task for WebSocket status — reads cached probe result, non-blocking."""
         stat.add("Host", self.websocket_test_host)
         stat.add("Port", str(self.websocket_test_port))
-        reachable = False
-        try:
-            with socket.create_connection((self.websocket_test_host, self.websocket_test_port), timeout=0.5):
-                reachable = True
-        except (socket.timeout, ConnectionRefusedError, OSError):
-            reachable = False
-
-        if reachable:
+        if self.websocket_server_active:
             stat.summary(DiagnosticStatus.OK, "Rosbridge Websocket available")
         else:
             stat.summary(DiagnosticStatus.ERROR, "Rosbridge Websocket NOT available")
@@ -670,15 +678,16 @@ class WebServerNode(Node):
 def main(args=None):
     import rclpy
     rclpy.init(args=args)
-    web_server = WebServerNode()
-    
+    node = None
     try:
-        rclpy.spin(web_server)
+        node = WebServerNode()
+        rclpy.spin(node)
     except KeyboardInterrupt:
         pass
     finally:
-        web_server.destroy_node()
-        # destroy_node() already performs cleanup; avoid calling shutdown twice
+        if node is not None:
+            node.destroy_node()
+        rclpy.try_shutdown()
 
 if __name__ == "__main__":
     main()
