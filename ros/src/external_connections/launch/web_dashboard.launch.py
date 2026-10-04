@@ -10,13 +10,29 @@ def generate_launch_description():
     
     # Parameters
     port = LaunchConfiguration('port', default='8080')
-    web_dir = '/home/laszipt/Documents/Projects/BORS1-ROS2/web_monitor'
+    search_dir = os.path.abspath(pkg_dir)
+    default_web_dir = ''
+    while True:
+        candidate = os.path.join(search_dir, 'web_monitor')
+        if os.path.isdir(candidate):
+            default_web_dir = candidate
+            break
+        parent_dir = os.path.dirname(search_dir)
+        if parent_dir == search_dir:
+            break
+        search_dir = parent_dir
+    web_dir = LaunchConfiguration('web_dir')
     
     # Launch arguments
     port_arg = DeclareLaunchArgument(
         'port',
         default_value='8080',
         description='Port for web dashboard server'
+    )
+    web_dir_arg = DeclareLaunchArgument(
+        'web_dir',
+        default_value=default_web_dir,
+        description='Directory containing the web dashboard files'
     )
     
     # Web server node
@@ -33,5 +49,6 @@ def generate_launch_description():
     
     return LaunchDescription([
         port_arg,
+        web_dir_arg,
         web_server_node
     ])
